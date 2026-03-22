@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0d0d0d">
+  <meta name="description" content="Caixinhas — Gestor Financeiro">
+
+  <!-- PWA: Android -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- PWA: iOS -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Caixinhas">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+
+  <!-- Favicon / ícone -->
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="shortcut icon" type="image/png" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <title>Caixinhas</title>
+</head>
+<body>
+
+  <!-- ══ LOGIN ══ -->
+  <div id="screen-login" class="screen screen-login" hidden>
+    <div class="login-box">
+      <span class="login-logo">◈</span>
+      <h1 class="login-title" id="login-app-title">Caixinhas</h1>
+      <p class="login-subtitle">Acesso Administrativo</p>
+      <div class="field">
+        <label for="login-password">Senha</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <p class="login-error" id="login-error" hidden>Senha incorreta. Tente novamente.</p>
+      <button class="btn-primary btn-login-submit" id="btn-login-submit">Entrar como Admin</button>
+      <button class="login-back-link" id="btn-login-cancel">← Voltar para o app</button>
+    </div>
+  </div>
+
+  <!-- ══ CLIENTE ══ -->
+  <div id="screen-client" class="screen">
+
+  <header class="app-header">
+    <div class="header-left">
+      <span class="app-logo">◈</span>
+      <div>
+        <h1 class="app-title" id="app-title">Caixinhas</h1>
+        <span class="app-subtitle" id="current-month-label">Carregando...</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="btn-admin-access" title="Painel Admin" aria-label="Painel Administrativo">🛡</button>
+      <button class="icon-btn" id="btn-history" title="Histórico">📅</button>
+      <div class="sync-indicator" title="Sincronização">
+        <span class="sync-dot" id="sync-dot"></span>
+      </div>
+    </div>
+  </header>
+
+  <div class="install-banner" id="install-banner" hidden>
+    <span>📲 Instale o app para usar offline</span>
+    <button class="btn-install" id="btn-install">Instalar</button>
+    <button class="icon-btn small" id="btn-install-dismiss">✕</button>
+  </div>
+
+  <main class="app-main">
+
+    <!-- Mensagem do Admin -->
+    <div class="admin-alert-banner" id="admin-alert-banner" hidden>
+      <span class="admin-alert-icon">💬</span>
+      <div class="admin-alert-content">
+        <span class="admin-alert-label">Mensagem</span>
+        <span class="admin-alert-text" id="admin-alert-text"></span>
+      </div>
+      <button class="icon-btn small" id="btn-dismiss-alert">✕</button>
+    </div>
+
+    <!-- TAB: INÍCIO -->
+    <section class="card card-renda" data-section="inicio">
+      <div class="card-label">Renda do Mês</div>
+      <div class="renda-input-wrap">
+        <span class="currency-prefix">R$</span>
+        <input type="number" id="input-renda" class="renda-input" placeholder="0,00" min="0" step="0.01" aria-label="Renda total do mês">
+      </div>
+      <div class="renda-meta" id="renda-meta"></div>
+    </section>
+
+    <section class="card card-resumo" data-section="inicio">
+      <div class="resumo-bar-wrap">
+        <div class="resumo-bar">
+          <div class="bar-segment bar-fixo"      id="bar-fixo"      style="width:0%"><span class="bar-label">Fixo</span></div>
+          <div class="bar-segment bar-caixinhas" id="bar-caixinhas" style="width:0%"><span class="bar-label">Caixinhas</span></div>
+          <div class="bar-segment bar-livre"     id="bar-livre"     style="width:100%"><span class="bar-label">Livre</span></div>
+        </div>
+      </div>
+      <div class="resumo-legenda">
+        <div class="legenda-item"><span class="dot dot-fixo"></span><span>Fixo <strong id="leg-fixo">R$ 0</strong></span></div>
+        <div class="legenda-item"><span class="dot dot-caixinhas"></span><span>Caixinhas <strong id="leg-caixinhas">R$ 0</strong></span></div>
+        <div class="legenda-item"><span class="dot dot-livre"></span><span>Livre <strong id="leg-livre">R$ 0</strong></span></div>
+      </div>
+    </section>
+
+    <section class="card card-livre" id="card-livre" data-section="inicio">
+      <div class="livre-label">Livre para gastar</div>
+      <div class="livre-valor" id="livre-valor">R$ 0,00</div>
+      <div class="livre-status" id="livre-status">—</div>
+    </section>
+
+    <!-- TAB: PLANEJAMENTO -->
+    <section class="card card-section section-hidden" data-section="fixo">
+      <div class="section-header">
+        <div class="section-title-group">
+          <span class="section-icon">🔒</span>
+          <div>
+            <h2 class="section-title" id="section-title-fixo">Não pode gastar</h2>
+            <p class="section-desc" id="section-desc-fixo">Compromissos e despesas fixas do mês</p>
+          </div>
+        </div>
+        <div class="section-total" id="total-fixo">R$ 0,00</div>
+      </div>
+      <ul class="item-list" id="list-fixo"></ul>
+      <button class="btn-add-item" data-target="fixo"><span>+</span> Adicionar despesa</button>
+    </section>
+
+    <section class="card card-section section-hidden" data-section="caixinhas">
+      <div class="section-header">
+        <div class="section-title-group">
+          <span class="section-icon">📦</span>
+          <div>
+            <h2 class="section-title" id="section-title-caixinhas">Caixinhas</h2>
+            <p class="section-desc" id="section-desc-caixinhas">Metas e reservas do mês</p>
+          </div>
+        </div>
+        <div class="section-total" id="total-caixinhas">R$ 0,00</div>
+      </div>
+      <ul class="item-list" id="list-caixinhas"></ul>
+      <button class="btn-add-item" data-target="caixinhas"><span>+</span> Nova caixinha</button>
+    </section>
+
+    <section class="card card-section section-hidden" data-section="compras">
+      <div class="section-header">
+        <div class="section-title-group">
+          <span class="section-icon">🛒</span>
+          <div>
+            <h2 class="section-title" id="section-title-compras">O que preciso comprar</h2>
+            <p class="section-desc" id="section-desc-compras">Itens planejados para adquirir</p>
+          </div>
+        </div>
+        <div class="section-total" id="total-compras">R$ 0,00</div>
+      </div>
+      <ul class="item-list" id="list-compras"></ul>
+      <button class="btn-add-item" data-target="compras"><span>+</span> Adicionar item</button>
+    </section>
+
+    <!-- TAB: LANÇAMENTOS -->
+    <section class="card card-section section-hidden" id="section-lancamentos" data-section="lancamentos">
+      <div class="section-header">
+        <div class="section-title-group">
+          <span class="section-icon">📝</span>
+          <div>
+            <h2 class="section-title">Lançamentos</h2>
+            <p class="section-desc">Receitas e despesas realizadas</p>
+          </div>
+        </div>
+        <div class="lanc-header-totals">
+          <span class="lanc-badge lanc-badge-despesa" id="badge-total-despesa">- R$ 0</span>
+          <span class="lanc-badge lanc-badge-receita" id="badge-total-receita">+ R$ 0</span>
+        </div>
+      </div>
+      <div class="lanc-filters">
+        <button class="lanc-filter-btn active" data-filter="todos">Todos</button>
+        <button class="lanc-filter-btn" data-filter="receita">Receitas</button>
+        <button class="lanc-filter-btn" data-filter="despesa">Despesas</button>
+      </div>
+      <div class="lanc-saldo-bar" id="lanc-saldo-bar">
+        <span class="lanc-saldo-label">Saldo real do mês</span>
+        <span class="lanc-saldo-valor" id="lanc-saldo-valor">R$ 0,00</span>
+      </div>
+      <ul class="item-list lanc-list" id="list-lancamentos"></ul>
+      <div class="lanc-empty" id="lanc-empty">
+        Nenhum lançamento ainda.<br>Registre suas receitas e despesas reais.
+      </div>
+      <button class="btn-add-item" id="btn-add-lancamento"><span>+</span> Novo lançamento</button>
+    </section>
+
+    <!-- TAB: RELATÓRIO (gerado inline via JS) -->
+
+    <!-- TAB: CONFIGURAÇÕES -->
+    <section class="card section-hidden" data-section="configuracoes">
+      <div class="card-label">Personalização</div>
+      <div class="tab-settings-body">
+        <div class="field">
+          <label for="cfg-app-name">Nome do app</label>
+          <input type="text" id="cfg-app-name" placeholder="Caixinhas">
+        </div>
+        <div class="field">
+          <label for="cfg-user-name">Seu nome</label>
+          <input type="text" id="cfg-user-name" placeholder="Ex: Gisele">
+        </div>
+        <div class="field">
+          <label>Cor de destaque</label>
+          <div class="color-picker-row" id="color-picker-row">
+            <button class="color-swatch active" data-color="#a78bfa" style="background:#a78bfa"></button>
+            <button class="color-swatch" data-color="#34d399" style="background:#34d399"></button>
+            <button class="color-swatch" data-color="#f472b6" style="background:#f472b6"></button>
+            <button class="color-swatch" data-color="#fb923c" style="background:#fb923c"></button>
+            <button class="color-swatch" data-color="#38bdf8" style="background:#38bdf8"></button>
+            <button class="color-swatch" data-color="#facc15" style="background:#facc15"></button>
+            <input type="color" id="cfg-custom-color" value="#a78bfa">
+          </div>
+        </div>
+      </div>
+      <div style="height:1px;background:var(--border);margin:4px 0 16px"></div>
+      <div class="card-label">Personalizar Seções</div>
+      <div class="tab-settings-body" style="margin-top:12px">
+        <div class="field">
+          <label for="cfg-section-fixo-name">Nome — Despesas Fixas</label>
+          <input type="text" id="cfg-section-fixo-name" placeholder="Não pode gastar">
+        </div>
+        <div class="field">
+          <label for="cfg-section-fixo-desc">Descrição</label>
+          <input type="text" id="cfg-section-fixo-desc" placeholder="Compromissos e despesas fixas">
+        </div>
+        <div class="field">
+          <label for="cfg-section-caixinhas-name">Nome — Caixinhas</label>
+          <input type="text" id="cfg-section-caixinhas-name" placeholder="Caixinhas">
+        </div>
+        <div class="field">
+          <label for="cfg-section-caixinhas-desc">Descrição</label>
+          <input type="text" id="cfg-section-caixinhas-desc" placeholder="Metas e reservas do mês">
+        </div>
+        <div class="field">
+          <label for="cfg-section-compras-name">Nome — Lista de Compras</label>
+          <input type="text" id="cfg-section-compras-name" placeholder="O que preciso comprar">
+        </div>
+        <div class="field">
+          <label for="cfg-section-compras-desc">Descrição</label>
+          <input type="text" id="cfg-section-compras-desc" placeholder="Itens planejados para adquirir">
+        </div>
+      </div>
+      <div style="height:1px;background:var(--border);margin:4px 0 16px"></div>
+      <div class="card-label">Notificações</div>
+      <div class="tab-settings-body" style="margin-top:12px">
+        <div class="field">
+          <label class="toggle-label">
+            <span>Ativar notificações push</span>
+            <input type="checkbox" id="cfg-push-enabled" role="switch">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+      </div>
+      <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px">
+        <button class="btn-primary" id="btn-save-settings" style="width:100%">Salvar configurações</button>
+        <button class="btn-danger" id="btn-clear-data" style="width:100%">🗑 Limpar dados do mês</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav" id="bottom-nav" aria-label="Navegação principal">
+    <button class="bnav-btn active" data-tab="inicio" aria-label="Início">
+      <span class="bnav-icon">🏠</span>
+      <span class="bnav-label">Início</span>
+    </button>
+    <button class="bnav-btn" data-tab="planejamento" aria-label="Planejamento">
+      <span class="bnav-icon">📋</span>
+      <span class="bnav-label">Planejar</span>
+    </button>
+    <button class="bnav-btn bnav-center" data-tab="lancamentos" aria-label="Lançamentos">
+      <span class="bnav-icon">＋</span>
+      <span class="bnav-label">Lançar</span>
+    </button>
+    <button class="bnav-btn" data-tab="relatorio" aria-label="Relatório">
+      <span class="bnav-icon">📊</span>
+      <span class="bnav-label">Relatório</span>
+    </button>
+    <button class="bnav-btn" data-tab="configuracoes" aria-label="Configurações">
+      <span class="bnav-icon">⚙</span>
+      <span class="bnav-label">Config</span>
+    </button>
+  </nav>
+
+  </div>
+
+  <!-- ══ ADMIN ══ -->
+  <div id="screen-admin" class="screen screen-admin" hidden>
+
+    <header class="app-header admin-header">
+      <div class="header-left">
+        <span class="app-logo admin-logo">🛡</span>
+        <div>
+          <h1 class="app-title">Painel Admin</h1>
+          <span class="app-subtitle" id="admin-month-label">—</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="realtime-badge" id="realtime-badge">
+          <span class="realtime-dot" id="realtime-dot"></span>
+          <span id="realtime-label">conectando</span>
+        </div>
+        <button class="icon-btn" id="btn-admin-settings" title="Configurações">⚙</button>
+        <button class="icon-btn" id="btn-admin-logout" title="Sair">✕</button>
+      </div>
+    </header>
+
+    <main class="admin-main">
+
+      <!-- KPIs -->
+      <div class="kpi-row" id="adm-kpi-row">
+        <div class="kpi-card kpi-card-renda">
+          <div class="kpi-label">💰 Renda</div>
+          <div class="kpi-value" id="adm-renda">R$ 0</div>
+        </div>
+        <div class="kpi-card kpi-card-gasto">
+          <div class="kpi-label">📤 Comprometido</div>
+          <div class="kpi-value kpi-danger" id="adm-gasto">R$ 0</div>
+        </div>
+        <div class="kpi-card kpi-card-livre">
+          <div class="kpi-label">✅ Livre</div>
+          <div class="kpi-value kpi-success" id="adm-livre">R$ 0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">📊 % Usado</div>
+          <div class="kpi-value" id="adm-pct">0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">📥 Receitas reais</div>
+          <div class="kpi-value kpi-success" id="adm-receitas">R$ 0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">📤 Despesas reais</div>
+          <div class="kpi-value kpi-danger" id="adm-despesas">R$ 0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">💵 Saldo real</div>
+          <div class="kpi-value" id="adm-saldo-real">R$ 0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">🎯 Cobertura</div>
+          <div class="kpi-value" id="adm-cobertura">0%</div>
+        </div>
+      </div>
+
+      <!-- Barra distribuição -->
+      <div class="card card-resumo">
+        <div class="resumo-bar-wrap">
+          <div class="resumo-bar">
+            <div class="bar-segment bar-fixo"      id="adm-bar-fixo"      style="width:0%"><span class="bar-label">Fixo</span></div>
+            <div class="bar-segment bar-caixinhas" id="adm-bar-caixinhas" style="width:0%"><span class="bar-label">Caixinhas</span></div>
+            <div class="bar-segment bar-livre"     id="adm-bar-livre"     style="width:100%"><span class="bar-label">Livre</span></div>
+          </div>
+        </div>
+        <div class="resumo-legenda">
+          <div class="legenda-item"><span class="dot dot-fixo"></span><span>Fixo <strong id="adm-leg-fixo">R$ 0</strong></span></div>
+          <div class="legenda-item"><span class="dot dot-caixinhas"></span><span>Caixinhas <strong id="adm-leg-caixinhas">R$ 0</strong></span></div>
+          <div class="legenda-item"><span class="dot dot-livre"></span><span>Livre <strong id="adm-leg-livre">R$ 0</strong></span></div>
+        </div>
+      </div>
+
+      <!-- Gráficos -->
+      <div class="admin-charts-row">
+
+        <div class="card adm-chart-card">
+          <div class="adm-chart-title">Planejado vs. Real</div>
+          <div class="chart-wrap"><canvas id="chart-planejado-real"></canvas></div>
+        </div>
+
+        <div class="card adm-chart-card">
+          <div class="adm-chart-title">Top Categorias de Despesa</div>
+          <div class="chart-wrap"><canvas id="chart-categorias"></canvas></div>
+        </div>
+
+        <div class="card adm-chart-card">
+          <div class="adm-chart-title">Distribuição do Orçamento</div>
+          <div class="chart-wrap chart-wrap-doughnut"><canvas id="chart-distribuicao"></canvas></div>
+        </div>
+
+      </div>
+
+      <!-- Análise detalhada + recomendações -->
+      <div class="admin-grid">
+
+        <div class="admin-col">
+
+          <!-- Análise -->
+          <div class="card card-section">
+            <div class="section-header">
+              <div class="section-title-group">
+                <span class="section-icon">📋</span>
+                <div><h2 class="section-title">Análise Detalhada</h2></div>
+              </div>
+            </div>
+            <div class="adm-analise-grid" id="adm-analise-grid">
+              <!-- preenchido por JS -->
+            </div>
+          </div>
+
+          <!-- Listas financeiras -->
+          <div class="card card-section">
+            <div class="section-header">
+              <div class="section-title-group"><span class="section-icon">🔒</span><div><h2 class="section-title">Não pode gastar</h2></div></div>
+              <div class="section-total" id="adm-total-fixo">R$ 0,00</div>
+            </div>
+            <ul class="item-list admin-item-list" id="adm-list-fixo"></ul>
+          </div>
+
+          <div class="card card-section">
+            <div class="section-header">
+              <div class="section-title-group"><span class="section-icon">📦</span><div><h2 class="section-title">Caixinhas</h2></div></div>
+              <div class="section-total" id="adm-total-caixinhas">R$ 0,00</div>
+            </div>
+            <ul class="item-list admin-item-list" id="adm-list-caixinhas"></ul>
+          </div>
+
+          <div class="card card-section">
+            <div class="section-header">
+              <div class="section-title-group"><span class="section-icon">🛒</span><div><h2 class="section-title">O que preciso comprar</h2></div></div>
+              <div class="section-total" id="adm-total-compras">R$ 0,00</div>
+            </div>
+            <ul class="item-list admin-item-list" id="adm-list-compras"></ul>
+          </div>
+
+          <!-- Lançamentos admin -->
+          <div class="card card-section">
+            <div class="section-header">
+              <div class="section-title-group"><span class="section-icon">📝</span><div><h2 class="section-title">Lançamentos</h2></div></div>
+              <div style="display:flex;gap:6px">
+                <span class="lanc-badge lanc-badge-despesa" id="adm-badge-despesa">- R$ 0</span>
+                <span class="lanc-badge lanc-badge-receita" id="adm-badge-receita">+ R$ 0</span>
+              </div>
+            </div>
+            <div class="lanc-saldo-bar">
+              <span class="lanc-saldo-label">Saldo real</span>
+              <span class="lanc-saldo-valor" id="adm-lanc-saldo-valor">R$ 0,00</span>
+            </div>
+            <ul class="item-list admin-item-list" id="adm-list-lancamentos"></ul>
+            <div class="lanc-empty" id="adm-lanc-empty" style="display:none">Sem lançamentos.</div>
+          </div>
+
+        </div>
+
+        <div class="admin-col">
+
+          <!-- Recomendações -->
+          <div class="card adm-recomendacoes-card">
+            <div class="section-header" style="padding:16px 16px 12px">
+              <div class="section-title-group">
+                <span class="section-icon">✅</span>
+                <div><h2 class="section-title">Recomendações</h2></div>
+              </div>
+            </div>
+            <ul class="adm-recomendacoes-list" id="adm-recomendacoes-list">
+              <li class="adm-rec-item adm-rec-neutral">Carregando análise...</li>
+            </ul>
+          </div>
+
+          <!-- Mensagem para ela -->
+          <div class="card admin-message-card">
+            <div class="card-label">Enviar mensagem para ela</div>
+            <textarea id="admin-message-input" class="admin-message-textarea" placeholder="Ex: Lembra de poupar R$ 50 essa semana 💪" rows="3"></textarea>
+            <div class="admin-message-actions">
+              <select id="admin-message-type" class="admin-select">
+                <option value="info">💬 Informação</option>
+                <option value="warn">⚠ Atenção</option>
+                <option value="success">✅ Parabéns</option>
+                <option value="danger">🚨 Alerta</option>
+              </select>
+              <button class="btn-primary" id="btn-send-message">Enviar</button>
+            </div>
+          </div>
+
+          <!-- Feed -->
+          <div class="card admin-feed-card">
+            <div class="feed-header">
+              <div class="card-label">Atividades em tempo real</div>
+              <div class="realtime-pulse" id="feed-pulse" hidden></div>
+            </div>
+            <div class="feed-empty" id="feed-empty">Aguardando atividade...</div>
+            <ul class="feed-list" id="feed-list"></ul>
+          </div>
+
+          <!-- Ações rápidas -->
+          <div class="card admin-actions-card">
+            <div class="card-label">Ações rápidas</div>
+            <div class="admin-quick-actions">
+              <button class="btn-quick-action" id="btn-adm-view-report">📊 Ver Relatório</button>
+              <button class="btn-quick-action" id="btn-adm-history">📅 Histórico</button>
+              <button class="btn-quick-action btn-quick-danger" id="btn-adm-clear">🗑 Limpar mês</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+
+  <!-- MODAL: Histórico -->
+  <div class="modal-overlay" id="modal-history" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="history-title">
+      <div class="modal-header">
+        <h2 id="history-title">Histórico de Meses</h2>
+        <button class="icon-btn" data-close-modal="modal-history">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="history-list" class="history-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Adicionar item -->
+  <div class="modal-overlay" id="modal-add-item" hidden>
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="add-item-title">
+      <div class="modal-header">
+        <h2 id="add-item-title">Novo Item</h2>
+        <button class="icon-btn" data-close-modal="modal-add-item">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="add-item-target">
+        <div class="field">
+          <label for="add-item-name">Nome</label>
+          <input type="text" id="add-item-name" placeholder="Ex: Conta de luz">
+        </div>
+        <div class="field">
+          <label for="add-item-value">Valor (R$)</label>
+          <input type="number" id="add-item-value" placeholder="0,00" min="0" step="0.01">
+        </div>
+        <div class="field">
+          <label for="add-item-emoji">Ícone (emoji)</label>
+          <input type="text" id="add-item-emoji" placeholder="📱" maxlength="2">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" id="btn-confirm-add-item">Adicionar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Lançamento -->
+  <div class="modal-overlay" id="modal-lancamento" hidden>
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="lanc-modal-title">
+      <div class="modal-header">
+        <h2 id="lanc-modal-title">Novo Lançamento</h2>
+        <button class="icon-btn" data-close-modal="modal-lancamento">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="lanc-edit-id">
+        <div class="field">
+          <label>Tipo</label>
+          <div class="lanc-tipo-toggle">
+            <button class="lanc-tipo-btn" data-tipo="receita"><span>📥</span> Receita</button>
+            <button class="lanc-tipo-btn active" data-tipo="despesa"><span>📤</span> Despesa</button>
+          </div>
+          <input type="hidden" id="lanc-tipo" value="despesa">
+        </div>
+        <div class="field">
+          <label for="lanc-descricao">Descrição</label>
+          <input type="text" id="lanc-descricao" placeholder="Ex: Mercado, Salário...">
+        </div>
+        <div class="field">
+          <label for="lanc-valor">Valor (R$)</label>
+          <input type="number" id="lanc-valor" placeholder="0,00" min="0" step="0.01">
+        </div>
+        <div class="field">
+          <label for="lanc-categoria">Categoria</label>
+          <select id="lanc-categoria" class="admin-select" style="width:100%">
+            <option value="alimentacao">🍽 Alimentação</option>
+            <option value="transporte">🚗 Transporte</option>
+            <option value="saude">💊 Saúde</option>
+            <option value="lazer">🎉 Lazer</option>
+            <option value="educacao">📚 Educação</option>
+            <option value="moradia">🏠 Moradia</option>
+            <option value="roupas">👗 Roupas</option>
+            <option value="salario">💰 Salário</option>
+            <option value="freelance">💻 Freelance</option>
+            <option value="outros">📌 Outros</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="lanc-data">Data</label>
+          <input type="date" id="lanc-data">
+        </div>
+        <div class="field">
+          <label for="lanc-obs">Observação (opcional)</label>
+          <input type="text" id="lanc-obs" placeholder="Detalhe se quiser">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close-modal="modal-lancamento">Cancelar</button>
+        <button class="btn-primary" id="btn-lanc-salvar">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <script src="storage.js"></script>
+  <script src="supabase.js"></script>
+  <script src="state.js"></script>
+  <script src="ui.js"></script>
+  <script src="report.js"></script>
+  <script src="lancamentos.js"></script>
+  <script src="admin.js"></script>
+  <script src="app.js"></script>
+  <script src="pwa.js"></script>
+
+</body>
+</html>
