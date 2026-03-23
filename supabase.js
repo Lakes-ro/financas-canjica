@@ -1,87 +1,39 @@
 /**
  * supabase.js
- * Sincronização com Supabase + Realtime (WebSocket) para o painel admin.
+ * Sincronização com Supabase + Realtime (WebSocket).
  *
- * ── SQL para criar as tabelas no Supabase ──────────────────
- *
- * -- 1. Dados financeiros mensais
- * create table if not exists finance_months (
- *   id          uuid primary key default gen_random_uuid(),
- *   month_key   text not null,
- *   user_id     text not null,
- *   data        jsonb not null,
- *   updated_at  timestamptz default now(),
- *   unique (month_key, user_id)
- * );
- *
- * -- 2. Feed de atividades (log de ações)
- * create table if not exists finance_activity (
- *   id         uuid primary key default gen_random_uuid(),
- *   user_id    text not null,
- *   month_key  text not null,
- *   action     text not null,
- *   detail     text,
- *   icon       text,
- *   created_at timestamptz default now()
- * );
- *
- * -- 3. Mensagens admin → cliente
- * create table if not exists finance_messages (
- *   id         uuid primary key default gen_random_uuid(),
- *   user_id    text not null,
- *   text       text not null,
- *   type       text default 'info',
- *   read       boolean default false,
- *   created_at timestamptz default now()
- * );
- *
- * -- Habilitar Realtime nas 3 tabelas:
- * -- No Supabase: Database → Replication → enable para finance_months, finance_activity, finance_messages
- *
- * -- RLS permissiva para uso pessoal (anon key):
- * alter table finance_months    enable row level security;
- * alter table finance_activity  enable row level security;
- * alter table finance_messages  enable row level security;
- *
- * create policy "public_all" on finance_months    for all using (true) with check (true);
- * create policy "public_all" on finance_activity  for all using (true) with check (true);
- * create policy "public_all" on finance_messages  for all using (true) with check (true);
+ * Cole suas credenciais nas constantes abaixo:
+ *   supabase.com → seu projeto → Settings → API
  */
 
 const SupabaseSync = (() => {
 
-  let _url    = '';
-  let _key    = '';
-  let _userId = '';
+  // ── Credenciais ───────────────────────────────────────────
+  const SUPABASE_URL = 'https://ywossdxnqhrhznglsvcr.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3b3NzZHhucWhyaHpuZ2xzdmNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTIzMjcsImV4cCI6MjA4OTc2ODMyN30.q654hvqIXjT2qi5fsLKYLx_VwCkFRCHNdYqHBfN08Uo';
 
-  // Referências de canal WebSocket
-  let _channelMonths    = null;
-  let _channelActivity  = null;
-  let _channelMessages  = null;
+  let _url    = 'https://ywossdxnqhrhznglsvcr.supabase.co';
+  let _key    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3b3NzZHhucWhyaHpuZ2xzdmNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTIzMjcsImV4cCI6MjA4OTc2ODMyN30.q654hvqIXjT2qi5fsLKYLx_VwCkFRCHNdYqHBfN08Uo';
+  let _userId = 'gama';
 
-  // Callbacks injetados externamente
-  let _onMonthChange   = null;
-  let _onActivity      = null;
-  let _onMessage       = null;
-
-  // ── Credenciais — coloque aqui as suas keys do Supabase ─────
-  // Acesse: supabase.com → seu projeto → Settings → API
-  const SUPABASE_URL = 'COLE_AQUI_A_URL_DO_PROJETO';   // ex: https://abcxyz.supabase.co
-  const SUPABASE_KEY = 'COLE_AQUI_A_ANON_KEY';         // ex: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+  let _onMonthChange = null;
+  let _onActivity    = null;
+  let _onMessage     = null;
 
   // ── Init ──────────────────────────────────────────────────
 
   function init() {
     const cfg = Storage.getConfig();
-    // URL e Key vêm do código (não do app) — edite as constantes acima
-    _url    = SUPABASE_URL !== 'COLE_AQUI_A_URL_DO_PROJETO' ? SUPABASE_URL : '';
-    _key    = SUPABASE_KEY !== 'COLE_AQUI_A_ANON_KEY'       ? SUPABASE_KEY : '';
+    _url    = SUPABASE_URL !== 'https://ywossdxnqhrhznglsvcr.supabase.co' ? SUPABASE_URL : '';
+    _key    = SUPABASE_KEY !== 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3b3NzZHhucWhyaHpuZ2xzdmNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTIzMjcsImV4cCI6MjA4OTc2ODMyN30.q654hvqIXjT2qi5fsLKYLx_VwCkFRCHNdYqHBfN08Uo' ? SUPABASE_KEY : '';
     _userId = cfg.userId?.trim() || cfg.userName?.trim() || 'usuario';
   }
 
   function isConfigured() {
     return Boolean(_url && _key);
   }
+
+  function getUserId() { return _userId; }
 
   // ── Headers ───────────────────────────────────────────────
 
@@ -94,15 +46,25 @@ const SupabaseSync = (() => {
     };
   }
 
+  // Headers para fetch com keepalive (usado no flushToRemote)
+  function getBeaconHeaders() {
+    return _headers({ 'Prefer': 'resolution=merge-duplicates,return=minimal' });
+  }
+
+  // URL base da tabela (usada no flushToRemote do state.js)
+  function getRestUrl(table) {
+    return `${_url}/rest/v1/${table}`;
+  }
+
   // ── REST: finance_months ──────────────────────────────────
 
   async function pushMonthData(monthKey, data) {
     if (!isConfigured()) return { ok: false, reason: 'not_configured' };
     try {
       const res = await fetch(`${_url}/rest/v1/finance_months`, {
-        method: 'POST',
+        method:  'POST',
         headers: _headers({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
-        body: JSON.stringify({
+        body:    JSON.stringify({
           month_key:  monthKey,
           user_id:    _userId,
           data,
@@ -131,25 +93,24 @@ const SupabaseSync = (() => {
   // ── REST: finance_activity ────────────────────────────────
 
   async function logActivity(action, detail = '', icon = '•') {
-    if (!isConfigured()) return;
-    const monthKey = Storage.currentMonthKey();
-
-    // Persiste localmente também
+    // Salva localmente sempre (funciona offline)
     Storage.appendFeedEntry({ action, detail, icon });
+
+    if (!isConfigured() || !navigator.onLine) return;
 
     try {
       await fetch(`${_url}/rest/v1/finance_activity`, {
-        method: 'POST',
+        method:  'POST',
         headers: _headers({ 'Prefer': 'return=minimal' }),
-        body: JSON.stringify({
+        body:    JSON.stringify({
           user_id:   _userId,
-          month_key: monthKey,
+          month_key: Storage.currentMonthKey(),
           action,
           detail,
           icon,
         }),
       });
-    } catch { /* falha silenciosa — já foi salvo localmente */ }
+    } catch { /* silencioso — já salvo localmente */ }
   }
 
   async function fetchActivity(monthKey, limit = 50) {
@@ -170,9 +131,9 @@ const SupabaseSync = (() => {
     if (!isConfigured()) return { ok: false, reason: 'not_configured' };
     try {
       const res = await fetch(`${_url}/rest/v1/finance_messages`, {
-        method: 'POST',
+        method:  'POST',
         headers: _headers({ 'Prefer': 'return=minimal' }),
-        body: JSON.stringify({ user_id: _userId, text, type, read: false }),
+        body:    JSON.stringify({ user_id: _userId, text, type, read: false }),
       });
       if (!res.ok) return { ok: false, reason: await res.text() };
       return { ok: true };
@@ -195,21 +156,17 @@ const SupabaseSync = (() => {
     if (!isConfigured()) return;
     try {
       await fetch(`${_url}/rest/v1/finance_messages?id=eq.${id}`, {
-        method: 'PATCH',
+        method:  'PATCH',
         headers: _headers({ 'Prefer': 'return=minimal' }),
-        body: JSON.stringify({ read: true }),
+        body:    JSON.stringify({ read: true }),
       });
     } catch { /* silencioso */ }
   }
 
   // ── Realtime via WebSocket nativo ─────────────────────────
-  // Supabase Realtime usa ws:// — fazemos a conexão manualmente
-  // sem depender do SDK para manter o projeto sem build tools.
 
-  let _ws = null;
-  let _wsHeartbeat = null;
-  let _wsReady = false;
-  let _realtimeCallbacks = new Set();
+  let _ws             = null;
+  let _wsHeartbeat    = null;
   let _reconnectTimer = null;
 
   function connectRealtime(onStatusChange) {
@@ -218,21 +175,15 @@ const SupabaseSync = (() => {
       return;
     }
 
-    const wsUrl = _url
-      .replace('https://', 'wss://')
-      .replace('http://', 'ws://');
+    const wsUrl = _url.replace('https://', 'wss://').replace('http://', 'ws://');
 
     function connect() {
       try {
         _ws = new WebSocket(`${wsUrl}/realtime/v1/websocket?apikey=${_key}&vsn=1.0.0`);
 
         _ws.onopen = () => {
-          _wsReady = true;
           onStatusChange?.('live');
-
-          // Subscreve nas 3 tabelas
-          const tables = ['finance_months', 'finance_activity', 'finance_messages'];
-          tables.forEach(table => {
+          ['finance_months', 'finance_activity', 'finance_messages'].forEach(table => {
             _ws.send(JSON.stringify({
               topic:   `realtime:public:${table}`,
               event:   'phx_join',
@@ -240,8 +191,6 @@ const SupabaseSync = (() => {
               ref:     null,
             }));
           });
-
-          // Heartbeat a cada 30s
           _wsHeartbeat = setInterval(() => {
             if (_ws.readyState === WebSocket.OPEN) {
               _ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: null }));
@@ -253,40 +202,26 @@ const SupabaseSync = (() => {
           try {
             const msg = JSON.parse(e.data);
             if (msg.event === 'phx_reply' || msg.topic === 'phoenix') return;
-
             const { topic, payload } = msg;
             const record = payload?.record || payload?.new;
-
             if (!record) return;
             if (record.user_id && record.user_id !== _userId) return;
-
-            if (topic?.includes('finance_months')) {
-              _onMonthChange?.(record);
-            } else if (topic?.includes('finance_activity')) {
-              _onActivity?.(record);
-            } else if (topic?.includes('finance_messages')) {
-              _onMessage?.(record);
-            }
+            if (topic?.includes('finance_months'))   _onMonthChange?.(record);
+            else if (topic?.includes('finance_activity'))  _onActivity?.(record);
+            else if (topic?.includes('finance_messages'))  _onMessage?.(record);
           } catch { /* ignora mensagens inválidas */ }
         };
 
-        _ws.onerror = () => {
-          onStatusChange?.('error');
-        };
+        _ws.onerror = () => onStatusChange?.('error');
 
         _ws.onclose = () => {
-          _wsReady = false;
           onStatusChange?.('connecting');
           clearInterval(_wsHeartbeat);
-
-          // Reconecta em 5s
           clearTimeout(_reconnectTimer);
           _reconnectTimer = setTimeout(connect, 5000);
         };
 
-      } catch {
-        onStatusChange?.('error');
-      }
+      } catch { onStatusChange?.('error'); }
     }
 
     connect();
@@ -297,13 +232,12 @@ const SupabaseSync = (() => {
     clearInterval(_wsHeartbeat);
     _ws?.close();
     _ws = null;
-    _wsReady = false;
   }
 
   function setCallbacks({ onMonthChange, onActivity, onMessage }) {
-    _onMonthChange  = onMonthChange  || null;
-    _onActivity     = onActivity     || null;
-    _onMessage      = onMessage      || null;
+    _onMonthChange = onMonthChange || null;
+    _onActivity    = onActivity    || null;
+    _onMessage     = onMessage     || null;
   }
 
   // ── Test connection ───────────────────────────────────────
@@ -317,29 +251,14 @@ const SupabaseSync = (() => {
     } catch { return false; }
   }
 
-  // ── Sync on online ────────────────────────────────────────
-
-  async function syncIfOnline(monthKey) {
-    if (!navigator.onLine || !isConfigured()) return;
-
-    const local  = Storage.getMonthData(monthKey);
-    const remote = await pullMonthData(monthKey);
-    if (!remote.ok) return;
-
-    if (remote.data && remote.updatedAt > (local.updatedAt || '')) {
-      Storage.saveMonthData(remote.data, monthKey);
-      return { merged: true, data: remote.data };
-    }
-
-    await pushMonthData(monthKey, local);
-    return { merged: false };
-  }
-
   // ── Public API ────────────────────────────────────────────
 
   return {
     init,
     isConfigured,
+    getUserId,
+    getRestUrl,
+    getBeaconHeaders,
     pushMonthData,
     pullMonthData,
     logActivity,
@@ -351,7 +270,6 @@ const SupabaseSync = (() => {
     disconnectRealtime,
     setCallbacks,
     testConnection,
-    syncIfOnline,
   };
 
 })();
