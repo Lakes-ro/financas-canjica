@@ -1,16 +1,18 @@
 /**
  * storage.js
  * Abstração localStorage. Toda leitura/escrita de dados passa por aqui.
+ * Inclui flag de sincronização pendente para funcionalidade offline.
  */
 
 const Storage = (() => {
 
   const KEYS = {
-    CONFIG:   'caixinhas:config',
-    DATA:     (k) => `caixinhas:data:${k}`,
-    HISTORY:  'caixinhas:history',
-    MESSAGES: 'caixinhas:messages',
-    FEED:     'caixinhas:feed',
+    CONFIG:       'caixinhas:config',
+    DATA:         (k) => `caixinhas:data:${k}`,
+    HISTORY:      'caixinhas:history',
+    MESSAGES:     'caixinhas:messages',
+    FEED:         'caixinhas:feed',
+    PENDING_SYNC: 'caixinhas:pending-sync',
   };
 
   // ── Helpers ───────────────────────────────────────────────
@@ -44,7 +46,6 @@ const Storage = (() => {
     supabaseKey:   '',
     pushEnabled:   false,
     pushSubscription: null,
-    // Nomes personalizáveis das seções de planejamento
     sectionNames: {
       fixo:      'Não pode gastar',
       caixinhas: 'Caixinhas',
@@ -102,17 +103,29 @@ const Storage = (() => {
   function _updateHistory(monthKey, data) {
     const history = safeGet(KEYS.HISTORY, {});
     history[monthKey] = {
-      renda:         data.renda,
-      totalFixo:     _sum(data.fixo),
-      totalCaixa:    _sum(data.caixinhas),
-      totalCompras:  _sum(data.compras),
-      updatedAt:     data.updatedAt,
+      renda:        data.renda,
+      totalFixo:    _sum(data.fixo),
+      totalCaixa:   _sum(data.caixinhas),
+      totalCompras: _sum(data.compras),
+      updatedAt:    data.updatedAt,
     };
     safeSet(KEYS.HISTORY, history);
   }
 
   function getHistory() {
     return safeGet(KEYS.HISTORY, {});
+  }
+
+  // ── Pending sync flag ─────────────────────────────────────
+  // true  = há dados locais ainda não enviados ao servidor
+  // false = local e remoto estão sincronizados
+
+  function setPendingSync(value) {
+    safeSet(KEYS.PENDING_SYNC, value);
+  }
+
+  function getPendingSync() {
+    return safeGet(KEYS.PENDING_SYNC, false);
   }
 
   // ── Messages (admin → cliente) ────────────────────────────
@@ -170,6 +183,7 @@ const Storage = (() => {
     getConfig, saveConfig,
     getMonthData, saveMonthData, clearMonthData,
     getHistory,
+    setPendingSync, getPendingSync,
     saveMessage, getMessage, clearMessage,
     appendFeedEntry, getFeed,
     exportAll,
