@@ -384,33 +384,83 @@
   function _bindNetworkEvents() {
     UI.setSyncState(navigator.onLine ? 'online' : 'offline');
 
+    // ── Voltou online ────────────────────────────────────────
     window.addEventListener('online', () => {
       UI.setSyncState('online');
-      UI.toast('De volta online 🌐', 'success');
+      UI.toast('De volta online — sincronizando... 🌐', 'info');
 
       const monthKey = State.getMonthKey();
-      SupabaseSync.syncIfOnline(monthKey).then(res => {
-        if (res?.merged) {
-          State.loadMonth(monthKey);
-          if (Admin.isLoggedIn()) Admin.renderAdminData();
-          UI.toast('Dados sincronizados', 'info');
-        }
-      });
+
+      // Se há dados pendentes, envia primeiro
+      if (Storage.getPendingSync()) {
+        SupabaseSync.pushMonthData(monthKey, State.getData()).then(res => {
+          if (res.ok) {
+            Storage.setPendingSync(false);
+            UI.setSyncState('online');
+            UI.toast('Dados sincronizados ✓', 'success');
+          }
+        });
+      } else {
+        // Sem pendências: verifica se remoto tem algo mais novo
+        SupabaseSync.pullMonthData(monthKey).then(remote => {
+          if (remote.ok && remote.data && remote.updatedAt > (State.getData().updatedAt || '')) {
+            State.loadMonth(monthKey);
+            if (Admin.isLoggedIn()) Admin.renderAdminData();
+            UI.toast('Dados atualizados do servidor ✓', 'success');
+          }
+        });
+      }
 
       Admin.checkIncomingMessages();
     });
 
+    // ── Ficou offline ────────────────────────────────────────
     window.addEventListener('offline', () => {
       UI.setSyncState('offline');
-      UI.toast('Sem conexão — dados salvos localmente', 'warn');
+      UI.toast('Sem conexão — dados salvos localmente 📴', 'warn');
     });
 
-    // Sync periódico
+    // ── Troca de app / minimiza ──────────────────────────────
+    // Garante que dados sejam enviados quando a usuária sai do app
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        // App foi para background ou outra aba foi aberta
+        State.flushToRemote();
+      } else if (document.visibilityState === 'visible') {
+        // App voltou ao foco — verifica se há dados mais novos no servidor
+        if (navigator.onLine && SupabaseSync.isConfigured()) {
+          const monthKey = State.getMonthKey();
+          SupabaseSync.pullMonthData(monthKey).then(remote => {
+            if (!remote.ok || !remote.data) return;
+            const localUpdated  = State.getData().updatedAt || '';
+            const remoteUpdated = remote.updatedAt || '';
+            if (remoteUpdated > localUpdated) {
+              // Servidor tem dados mais recentes (editados em outro dispositivo)
+              State.loadMonth(monthKey);
+              Lancamentos.render();
+              if (Admin.isLoggedIn()) Admin.renderAdminData();
+              UI.toast('Dados atualizados 🔄', 'info', 2000);
+            } else if (Storage.getPendingSync()) {
+              // Local tem dados não enviados
+              State.flushToRemote();
+            }
+          }).catch(() => {});
+        }
+      }
+    });
+
+    // ── Fecha a página / PWA ──────────────────────────────────
+    window.addEventListener('pagehide', () => {
+      State.flushToRemote();
+    });
+
+    // ── Sync periódico (a cada 3 min) ────────────────────────
     setInterval(() => {
       if (!navigator.onLine || !SupabaseSync.isConfigured()) return;
-      const mk = State.getMonthKey();
-      SupabaseSync.pushMonthData(mk, State.getData());
-    }, 5 * 60 * 1000);
+      if (Storage.getPendingSync()) {
+        State.flushToRemote();
+      }
+    }, 3 * 60 * 1000);
   }
 
   // ── Helper ────────────────────────────────────────────────
