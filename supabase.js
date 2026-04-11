@@ -14,7 +14,7 @@ const SupabaseSync = (() => {
 
   let _url    = 'https://ywossdxnqhrhznglsvcr.supabase.co';
   let _key    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3b3NzZHhucWhyaHpuZ2xzdmNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTIzMjcsImV4cCI6MjA4OTc2ODMyN30.q654hvqIXjT2qi5fsLKYLx_VwCkFRCHNdYqHBfN08Uo';
-  let _userId = 'gama';
+  let _userId = 'usuario';
 
   let _onMonthChange = null;
   let _onActivity    = null;
@@ -24,9 +24,11 @@ const SupabaseSync = (() => {
 
   function init() {
     const cfg = Storage.getConfig();
-    _url    = SUPABASE_URL !== 'https://ywossdxnqhrhznglsvcr.supabase.co' ? SUPABASE_URL : '';
-    _key    = SUPABASE_KEY !== 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3b3NzZHhucWhyaHpuZ2xzdmNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTIzMjcsImV4cCI6MjA4OTc2ODMyN30.q654hvqIXjT2qi5fsLKYLx_VwCkFRCHNdYqHBfN08Uo' ? SUPABASE_KEY : '';
-    _userId = cfg.userId?.trim() || cfg.userName?.trim() || 'usuario';
+    // Atribui as credenciais diretamente das constantes
+    _url    = SUPABASE_URL;
+    _key    = SUPABASE_KEY;
+    // userId sempre vem do config (ou fallback para o hardcoded inicial)
+    _userId = cfg.userId?.trim() || cfg.userName?.trim() || _userId || 'usuario';
   }
 
   function isConfigured() {
