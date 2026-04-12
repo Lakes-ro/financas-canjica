@@ -1,20 +1,16 @@
-/**
- * supabase.js
- * Sincronização com Supabase + Realtime (WebSocket).
- *
- * Cole suas credenciais nas constantes abaixo:
- *   supabase.com → seu projeto → Settings → API
- */
 
 const SupabaseSync = (() => {
 
   // ── Credenciais ───────────────────────────────────────────
-  const SUPABASE_URL = 'https://ywossdxnqhrhznglsvcr.supabase.co';
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3b3NzZHhucWhyaHpuZ2xzdmNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTIzMjcsImV4cCI6MjA4OTc2ODMyN30.q654hvqIXjT2qi5fsLKYLx_VwCkFRCHNdYqHBfN08Uo';
+  const SUPABASE_URL  = 'https://ywossdxnqhrhznglsvcr.supabase.co';
+  const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3b3NzZHhucWhyaHpuZ2xzdmNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTIzMjcsImV4cCI6MjA4OTc2ODMyN30.q654hvqIXjT2qi5fsLKYLx_VwCkFRCHNdYqHBfN08Uo';
 
-  let _url    = 'https://ywossdxnqhrhznglsvcr.supabase.co';
-  let _key    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3b3NzZHhucWhyaHpuZ2xzdmNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTIzMjcsImV4cCI6MjA4OTc2ODMyN30.q654hvqIXjT2qi5fsLKYLx_VwCkFRCHNdYqHBfN08Uo';
-  let _userId = 'usuario';
+  
+  const FIXED_USER_ID = 'gisele';
+
+  let _url    = SUPABASE_URL;
+  let _key    = SUPABASE_KEY;
+  let _userId = FIXED_USER_ID;
 
   let _onMonthChange = null;
   let _onActivity    = null;
@@ -23,12 +19,10 @@ const SupabaseSync = (() => {
   // ── Init ──────────────────────────────────────────────────
 
   function init() {
-    const cfg = Storage.getConfig();
-    // Atribui as credenciais diretamente das constantes
+  
     _url    = SUPABASE_URL;
     _key    = SUPABASE_KEY;
-    // userId sempre vem do config (ou fallback para o hardcoded inicial)
-    _userId = cfg.userId?.trim() || cfg.userName?.trim() || _userId || 'usuario';
+    _userId = FIXED_USER_ID;
   }
 
   function isConfigured() {
@@ -164,8 +158,6 @@ const SupabaseSync = (() => {
       });
     } catch { /* silencioso */ }
   }
-
-  // ── Realtime via WebSocket nativo ─────────────────────────
 
   let _ws             = null;
   let _wsHeartbeat    = null;
