@@ -1,9 +1,3 @@
-/**
- * storage.js
- * Abstração localStorage. Toda leitura/escrita de dados passa por aqui.
- * Inclui flag de sincronização pendente para funcionalidade offline.
- */
-
 const Storage = (() => {
 
   const KEYS = {
@@ -39,7 +33,8 @@ const Storage = (() => {
   const DEFAULT_CONFIG = {
     appName:       'Caixinhas',
     userName:      '',
-    userId:        'usuario',
+    // userId removido — o ID da conta é fixo em supabase.js (FIXED_USER_ID)
+    // e não deve variar por dispositivo
     accentColor:   '#a78bfa',
     adminPassword: 'admin',
     supabaseUrl:   '',
@@ -117,8 +112,7 @@ const Storage = (() => {
   }
 
   // ── Pending sync flag ─────────────────────────────────────
-  // true  = há dados locais ainda não enviados ao servidor
-  // false = local e remoto estão sincronizados
+
 
   function setPendingSync(value) {
     safeSet(KEYS.PENDING_SYNC, value);
